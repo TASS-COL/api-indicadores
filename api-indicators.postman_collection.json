@@ -1,0 +1,365 @@
+{
+  "info": {
+    "name": "API Indicators — TESO",
+    "description": "# API de Indicadores Económicos\n\nAPI REST para consulta de indicadores económicos (TRM, IPC, IBR, tasas BanRep, etc.) y datos Damodaran de industrias globales.\n\n## Autenticación\n\nLa mayoría de endpoints requieren **JWT Bearer Token**. Flujo:\n\n1. Obtener token con `POST /auth/token` usando `app_id` + `app_secret`.\n2. Incluir el token en el header: `Authorization: Bearer <token>`\n\nLos endpoints administrativos (`/auth/register`, `/auth/apps`, etc.) requieren en cambio el header `X-Api-Key: <master_key>`.\n\n## Variables de entorno\n\nUsa el environment **API Indicators Local** (incluido) con las variables:\n- `base_url` → `http://localhost:3008`\n- `token` → se llena automáticamente al ejecutar *01 - Obtener Token JWT*\n- `master_key` → master key de administración",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:3008", "type": "string" },
+    { "key": "token",    "value": "",                      "type": "string" },
+    { "key": "master_key", "value": "",                    "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "🔐 Auth",
+      "description": "Endpoints de autenticación. Los tokens tienen duración limitada (ver `expires_in` en la respuesta).",
+      "item": [
+        {
+          "name": "01 - Obtener Token JWT",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.ok && res.token) {",
+                  "  pm.collectionVariables.set('token', res.token);",
+                  "  console.log('Token guardado. Expira en:', res.expires_in);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"app_id\": \"{{app_id}}\",\n  \"app_secret\": \"{{app_secret}}\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/auth/token", "host": ["{{base_url}}"], "path": ["auth", "token"] },
+            "description": "Genera un JWT con las credenciales de la aplicación registrada.\n\nEl script de test guarda el token automáticamente en la variable `token` de la colección, por lo que el resto de requests lo usarán sin intervención manual."
+          }
+        },
+        {
+          "name": "02 - Mis empresas (JWT)",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/auth/companies", "host": ["{{base_url}}"], "path": ["auth", "companies"] },
+            "description": "Lista las empresas asociadas a la aplicación autenticada."
+          }
+        },
+        {
+          "name": "[Admin] Registrar aplicación",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Api-Key", "value": "{{master_key}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"mi-app\",\n  \"name\": \"Mi Aplicación\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/auth/register", "host": ["{{base_url}}"], "path": ["auth", "register"] },
+            "description": "Registra una nueva aplicación. Requiere `X-Api-Key` con la master key.\n\n⚠️ Guarda el `app_secret` devuelto — no se puede recuperar."
+          }
+        },
+        {
+          "name": "[Admin] Listar aplicaciones",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Api-Key", "value": "{{master_key}}" }],
+            "url": { "raw": "{{base_url}}/auth/apps", "host": ["{{base_url}}"], "path": ["auth", "apps"] },
+            "description": "Lista todas las aplicaciones registradas. Requiere master key."
+          }
+        },
+        {
+          "name": "[Admin] Activar / Desactivar aplicación",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Api-Key", "value": "{{master_key}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"is_active\": true\n}"
+            },
+            "url": { "raw": "{{base_url}}/auth/apps/mi-app/status", "host": ["{{base_url}}"], "path": ["auth", "apps", "mi-app", "status"] },
+            "description": "Activa o desactiva una aplicación. Reemplaza `mi-app` por el `code` de la aplicación."
+          }
+        },
+        {
+          "name": "[Admin] Agregar empresa a app",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Api-Key", "value": "{{master_key}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"app_code\": \"mi-app\",\n  \"doc_type\": \"NIT\",\n  \"doc_number\": \"900123456\",\n  \"name\": \"Empresa S.A.S\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/auth/companies", "host": ["{{base_url}}"], "path": ["auth", "companies"] },
+            "description": "Asocia una empresa a una aplicación. `doc_type` acepta: `NIT`, `CC`, `CE`, `PASAPORTE`."
+          }
+        }
+      ]
+    },
+    {
+      "name": "📊 Indicadores",
+      "description": "Indicadores económicos: TRM, IPC, IBR, tasas BanRep, DTF, etc.\n\nTodos requieren JWT Bearer Token salvo que se indique lo contrario.",
+      "item": [
+        {
+          "name": "Catálogo de indicadores",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/indicators/catalog", "host": ["{{base_url}}"], "path": ["indicators", "catalog"] },
+            "description": "Lista todos los indicadores disponibles con su alias, nombre, segmentación y los endpoints de histórico/latest listos para copiar."
+          }
+        },
+        {
+          "name": "Grupos de indicadores",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/indicators/groups", "host": ["{{base_url}}"], "path": ["indicators", "groups"] },
+            "description": "Lista los grupos de indicadores (ej. tasas, precios, cambiario)."
+          }
+        },
+        {
+          "name": "Snapshot general (último valor de cada indicador)",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/indicators/snapshot", "host": ["{{base_url}}"], "path": ["indicators", "snapshot"] },
+            "description": "Devuelve el último valor registrado de **todos** los indicadores en una sola llamada. Ideal para dashboards."
+          }
+        },
+        {
+          "name": "Últimos registros — todos",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/indicators/latest", "host": ["{{base_url}}"], "path": ["indicators", "latest"] },
+            "description": "Devuelve los registros más recientes de todos los indicadores."
+          }
+        },
+        {
+          "name": "Último valor — por alias",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/indicators/TRM/latest", "host": ["{{base_url}}"], "path": ["indicators", "TRM", "latest"] },
+            "description": "Devuelve el valor más reciente de un indicador específico.\n\n**Ejemplos de alias:** `TRM`, `IPC`, `IBR_ON`, `IBR_1M`, `IBR_3M`, `IBR_6M`, `REPO_BRC`, `DTF`\n\nCambia `TRM` en la URL por el alias deseado."
+          }
+        },
+        {
+          "name": "Records recientes — por alias",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/indicators/TRM/records", "host": ["{{base_url}}"], "path": ["indicators", "TRM", "records"] },
+            "description": "Últimos records almacenados para el indicador indicado."
+          }
+        },
+        {
+          "name": "Histórico — por alias y rango de fechas",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/indicators/TRM/historic?from=2025-01-01&to=2025-04-20",
+              "host": ["{{base_url}}"],
+              "path": ["indicators", "TRM", "historic"],
+              "query": [
+                { "key": "from", "value": "2025-01-01", "description": "Fecha inicio (YYYY-MM-DD) — requerido" },
+                { "key": "to",   "value": "2025-04-20", "description": "Fecha fin (YYYY-MM-DD) — requerido" },
+                { "key": "segmentation", "value": null, "disabled": true, "description": "Filtrar por segmentación (ej. DIARIO, MENSUAL)" },
+                { "key": "term_value",   "value": null, "disabled": true, "description": "Filtrar por plazo numérico" },
+                { "key": "term_unit",    "value": null, "disabled": true, "description": "Filtrar por unidad de plazo (ej. DAYS, MONTHS)" }
+              ]
+            },
+            "description": "Histórico de un indicador en un rango de fechas.\n\n**Parámetros requeridos:** `from` y `to` en formato `YYYY-MM-DD`.\n\n**Parámetros opcionales:** `segmentation`, `term_value`, `term_unit` — útiles para IBR que tiene varias vigencias (ON, 1M, 3M, 6M).\n\nRespuesta incluye metadata del indicador y el array `rows` con cada entrada histórica."
+          }
+        },
+        {
+          "name": "Histórico plano — todos los indicadores (JOIN)",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/indicators/historic?from=2025-04-01&to=2025-04-20&page=1",
+              "host": ["{{base_url}}"],
+              "path": ["indicators", "historic"],
+              "query": [
+                { "key": "alias",        "value": null,           "disabled": true,  "description": "Filtrar por alias (ej. TRM, IPC). Opcional." },
+                { "key": "from",         "value": "2025-04-01",   "disabled": false, "description": "Fecha inicio (YYYY-MM-DD)" },
+                { "key": "to",           "value": "2025-04-20",   "disabled": false, "description": "Fecha fin (YYYY-MM-DD)" },
+                { "key": "segmentation", "value": null,           "disabled": true,  "description": "Filtrar por segmentación" },
+                { "key": "page",         "value": "1",            "disabled": false, "description": "Página (200 filas por página)" }
+              ]
+            },
+            "description": "Endpoint **plano con JOIN**: devuelve histórico de todos los indicadores con las características del indicador en cada fila (sin `indicator_id`). Ideal para exportar o alimentar reportes.\n\n**Respuesta:** `{ ok, total, page, limit, pages, rows[] }`\n\nCada fila contiene: `alias`, `name`, `segmentation`, `term_value`, `term_unit`, `base`, `unit`, `source`, `from_date`, `to_date`, `value`, `periodicity`, `status`.\n\n**Filtros disponibles:** `alias`, `from`, `to`, `segmentation`, `page`.\n\n**Ejemplo — solo TRM:** agrega `alias=TRM` a los query params."
+          }
+        },
+        {
+          "name": "Histórico plano — filtrado por alias TRM",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/indicators/historic?alias=TRM&from=2025-01-01&to=2025-04-20",
+              "host": ["{{base_url}}"],
+              "path": ["indicators", "historic"],
+              "query": [
+                { "key": "alias", "value": "TRM" },
+                { "key": "from",  "value": "2025-01-01" },
+                { "key": "to",    "value": "2025-04-20" }
+              ]
+            },
+            "description": "Mismo endpoint plano pero filtrando sólo por TRM. Útil como plantilla: cambia `alias=TRM` por cualquier otro alias del catálogo."
+          }
+        }
+      ]
+    },
+    {
+      "name": "🏭 Damodaran — Múltiplos e Industrias",
+      "description": "# Datos Damodaran (NYU Stern)\n\nDatos de múltiplos de valoración e industrias actualizados anualmente por Aswath Damodaran (NYU Stern).\n\n## Datasets disponibles\n\n| `dataset` (key en URL) | Nombre | Columnas disponibles |\n|---|---|---|\n| `betas-global` | Betas Globales | `unlevered_beta` |\n| `multiplo-ev-ebitda` | Múltiplo EV/EBITDA | `ev_ebitda`, `ev_ebitdard`, `ev_ebit`, `ev_ebit_1t` |\n| `multiplo-ev-sales` | Múltiplo EV/Sales | `price_sales`, `net_margin`, `ev_sales` |\n\n## ¿Cómo buscar por EV/EBITDA?\n\nUsar el dataset `multiplo-ev-ebitda`. La respuesta incluye por industria:\n- **`ev_ebitda`** — Múltiplo EV/EBITDA estándar\n- **`ev_ebitdard`** — EV/EBITDAR (incluye rentas)\n- **`ev_ebit`** — Múltiplo EV/EBIT\n- **`ev_ebit_1t`** — EV/EBIT(1-t) ajustado por impuestos\n\nLos valores son numéricos. `null` significa que Damodaran reporta N/A para esa industria (común en financieras para EV/EBITDA).\n\n## Autenticación\nTodos los endpoints requieren JWT Bearer Token.",
+      "item": [
+        {
+          "name": "Listar datasets disponibles",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/damodaran", "host": ["{{base_url}}"], "path": ["damodaran"] },
+            "description": "Lista los datasets disponibles con su última fecha de actualización y número de industrias cargadas.\n\nRespuesta:\n```json\n{\n  \"ok\": true,\n  \"datasets\": [\n    {\n      \"dataset\": \"multiplo-ev-ebitda\",\n      \"name\": \"Múltiplo EV/EBITDA\",\n      \"last_update\": \"2025-01-01\",\n      \"industries\": 95,\n      \"endpoint\": \"/damodaran/multiplo-ev-ebitda\"\n    }\n  ]\n}\n```"
+          }
+        },
+        {
+          "name": "EV/EBITDA — Todas las industrias",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/damodaran/multiplo-ev-ebitda", "host": ["{{base_url}}"], "path": ["damodaran", "multiplo-ev-ebitda"] },
+            "description": "Snapshot más reciente del dataset EV/EBITDA con todas las industrias.\n\nCada fila contiene:\n- `industry_name` — nombre de la industria (ej. `\"Advertising\"`, `\"Banks (Money Center)\"`)\n- `metrics.ev_ebitda` — múltiplo EV/EBITDA\n- `metrics.ev_ebitdard` — múltiplo EV/EBITDAR\n- `metrics.ev_ebit` — múltiplo EV/EBIT\n- `metrics.ev_ebit_1t` — múltiplo EV/EBIT(1-t)\n\nEjemplo de fila:\n```json\n{\n  \"industry_name\": \"Advertising\",\n  \"metrics\": {\n    \"ev_ebitda\": 12.45,\n    \"ev_ebitdard\": 8.32,\n    \"ev_ebit\": 15.20,\n    \"ev_ebit_1t\": 19.87\n  },\n  \"update_date\": \"2025-01-01\"\n}\n```\n\n⚠️ Las industrias financieras (Banks, Insurance, etc.) suelen tener `ev_ebitda: null` porque Damodaran reporta N/A para ese sector."
+          }
+        },
+        {
+          "name": "EV/EBITDA — Buscar industria específica",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/damodaran/multiplo-ev-ebitda?industry=Advertising",
+              "host": ["{{base_url}}"],
+              "path": ["damodaran", "multiplo-ev-ebitda"],
+              "query": [
+                { "key": "industry", "value": "Advertising", "description": "Nombre parcial o exacto de la industria (búsqueda por LIKE)" }
+              ]
+            },
+            "description": "Filtra el snapshot por nombre de industria.\n\nEl parámetro `industry` hace búsqueda por coincidencia. Prueba con:\n- `Advertising`\n- `Banking`\n- `Software`\n- `Oil`\n- `Retail`\n- `Healthcare`\n\nÚtil para encontrar el múltiplo de una industria particular para una valoración."
+          }
+        },
+        {
+          "name": "Betas Globales — Todas las industrias",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/damodaran/betas-global", "host": ["{{base_url}}"], "path": ["damodaran", "betas-global"] },
+            "description": "Beta desapalancada (`unlevered_beta`) por industria a nivel global.\n\nUso típico: determinar el beta desapalancado de referencia para una industria en una valoración CAPM/WACC."
+          }
+        },
+        {
+          "name": "Betas Globales — Buscar industria",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/damodaran/betas-global?industry=Software",
+              "host": ["{{base_url}}"],
+              "path": ["damodaran", "betas-global"],
+              "query": [
+                { "key": "industry", "value": "Software" }
+              ]
+            },
+            "description": "Beta desapalancada para industrias de software. Cambia el valor de `industry` según lo que necesites."
+          }
+        },
+        {
+          "name": "EV/Sales — Todas las industrias",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/damodaran/multiplo-ev-sales", "host": ["{{base_url}}"], "path": ["damodaran", "multiplo-ev-sales"] },
+            "description": "Snapshot del dataset EV/Sales con columnas:\n- `metrics.price_sales` — Precio/Ventas\n- `metrics.net_margin` — Margen neto (valor decimal, ej. `0.15` = 15%)\n- `metrics.ev_sales` — EV/Ventas"
+          }
+        },
+        {
+          "name": "Historial — EV/EBITDA por industria",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/damodaran/multiplo-ev-ebitda/industry/Advertising/history",
+              "host": ["{{base_url}}"],
+              "path": ["damodaran", "multiplo-ev-ebitda", "industry", "Advertising", "history"]
+            },
+            "description": "Serie histórica de los múltiplos EV/EBITDA para una industria específica a lo largo de los años.\n\nReemplaza `Advertising` por el nombre exacto de la industria (tal como aparece en el snapshot). Muestra cómo ha evolucionado el múltiplo año a año."
+          }
+        },
+        {
+          "name": "[Admin] Forzar actualización EV/EBITDA",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "POST",
+            "url": { "raw": "{{base_url}}/damodaran/multiplo-ev-ebitda/refresh", "host": ["{{base_url}}"], "path": ["damodaran", "multiplo-ev-ebitda", "refresh"] },
+            "description": "Fuerza la descarga y actualización del dataset EV/EBITDA desde NYU Stern.\n\nTambién disponible para los otros datasets:\n- `POST /damodaran/betas-global/refresh`\n- `POST /damodaran/multiplo-ev-sales/refresh`\n\nUtilizar cuando los datos no estén cargados o se quiera refrescar manualmente sin esperar el job programado."
+          }
+        }
+      ]
+    },
+    {
+      "name": "⚙️ Jobs (Admin)",
+      "description": "Gestión de jobs de actualización de indicadores. Requieren JWT.",
+      "item": [
+        {
+          "name": "Listar jobs disponibles",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/indicator-jobs", "host": ["{{base_url}}"], "path": ["indicator-jobs"] },
+            "description": "Lista todos los jobs de actualización de indicadores registrados con su cron schedule."
+          }
+        },
+        {
+          "name": "Ejecutar job manualmente",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "POST",
+            "url": { "raw": "{{base_url}}/indicator-jobs/trm/run", "host": ["{{base_url}}"], "path": ["indicator-jobs", "trm", "run"] },
+            "description": "Dispara manualmente un job específico. Reemplaza `trm` por la key del job que deseas ejecutar.\n\nUsa el endpoint de listado para obtener las keys disponibles."
+          }
+        }
+      ]
+    },
+    {
+      "name": "🏥 Health",
+      "item": [
+        {
+          "name": "Health check",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/health", "host": ["{{base_url}}"], "path": ["health"] },
+            "description": "Verifica que la API esté corriendo. No requiere autenticación."
+          }
+        }
+      ]
+    }
+  ]
+}

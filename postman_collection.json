@@ -1,0 +1,261 @@
+{
+  "info": {
+    "name": "API Indicators - TESO",
+    "_postman_id": "teso-api-indicators-v1",
+    "description": "Colección completa para consultar indicadores financieros. Base URL: http://localhost:3008",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:3008", "type": "string" },
+    { "key": "token", "value": "", "type": "string" },
+    { "key": "api_key", "value": "", "type": "string" },
+    { "key": "master_key", "value": "", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/health", "host": ["{{base_url}}"], "path": ["health"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Obtener Token (POST /auth/token)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.ok && res.token) {",
+                  "  pm.collectionVariables.set('token', res.token);",
+                  "  console.log('Token guardado:', res.token);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"app_id\": \"MI_APP\",\n  \"app_secret\": \"MI_SECRET\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/auth/token", "host": ["{{base_url}}"], "path": ["auth", "token"] }
+          }
+        },
+        {
+          "name": "Listar Empresas (GET /auth/companies)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/auth/companies", "host": ["{{base_url}}"], "path": ["auth", "companies"] }
+          }
+        },
+        {
+          "name": "[Admin] Registrar Aplicación (POST /auth/register)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Api-Key", "value": "{{master_key}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"MI_APP\",\n  \"name\": \"Mi Aplicación\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/auth/register", "host": ["{{base_url}}"], "path": ["auth", "register"] }
+          }
+        },
+        {
+          "name": "[Admin] Agregar Empresa a App (POST /auth/companies)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Api-Key", "value": "{{master_key}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"app_code\": \"MI_APP\",\n  \"doc_type\": \"NIT\",\n  \"doc_number\": \"900123456\",\n  \"name\": \"Empresa Ejemplo S.A.S\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/auth/companies", "host": ["{{base_url}}"], "path": ["auth", "companies"] }
+          }
+        },
+        {
+          "name": "[Admin] Eliminar Empresa de App (DELETE /auth/companies/:doc_number)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Api-Key", "value": "{{master_key}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"app_code\": \"MI_APP\",\n  \"doc_type\": \"NIT\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/auth/companies/900123456", "host": ["{{base_url}}"], "path": ["auth", "companies", "900123456"] }
+          }
+        },
+        {
+          "name": "[Admin] Listar Aplicaciones (GET /auth/apps)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Api-Key", "value": "{{master_key}}" }],
+            "url": { "raw": "{{base_url}}/auth/apps", "host": ["{{base_url}}"], "path": ["auth", "apps"] }
+          }
+        },
+        {
+          "name": "[Admin] Cambiar Estado App (PATCH /auth/apps/:code/status)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Api-Key", "value": "{{master_key}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"is_active\": true\n}"
+            },
+            "url": { "raw": "{{base_url}}/auth/apps/MI_APP/status", "host": ["{{base_url}}"], "path": ["auth", "apps", "MI_APP", "status"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Indicadores",
+      "item": [
+        {
+          "name": "Catálogo de Indicadores (GET /indicators/catalog)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/indicators/catalog", "host": ["{{base_url}}"], "path": ["indicators", "catalog"] }
+          }
+        },
+        {
+          "name": "Grupos de Indicadores (GET /indicators/groups)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/indicators/groups", "host": ["{{base_url}}"], "path": ["indicators", "groups"] }
+          }
+        },
+        {
+          "name": "Snapshot - Últimos valores (GET /indicators/snapshot)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/indicators/snapshot", "host": ["{{base_url}}"], "path": ["indicators", "snapshot"] }
+          }
+        },
+        {
+          "name": "Últimos registros globales (GET /indicators/latest)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/indicators/latest", "host": ["{{base_url}}"], "path": ["indicators", "latest"] }
+          }
+        },
+        {
+          "name": "Último valor por alias (GET /indicators/:alias/latest)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{base_url}}/indicators/TRM/latest",
+              "host": ["{{base_url}}"],
+              "path": ["indicators", "TRM", "latest"]
+            },
+            "description": "Reemplaza TRM por cualquier alias: IBR, DTF, UVR, IPC, SOFR, etc."
+          }
+        },
+        {
+          "name": "Registros por indicador (GET /indicators/:alias/records)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{base_url}}/indicators/TRM/records",
+              "host": ["{{base_url}}"],
+              "path": ["indicators", "TRM", "records"]
+            }
+          }
+        },
+        {
+          "name": "Histórico por rango de fechas (GET /indicators/:alias/historic)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{base_url}}/indicators/IBR/historic?from=2024-01-01&to=2024-12-31",
+              "host": ["{{base_url}}"],
+              "path": ["indicators", "IBR", "historic"],
+              "query": [
+                { "key": "from", "value": "2024-01-01", "description": "Fecha inicio YYYY-MM-DD (requerido)" },
+                { "key": "to", "value": "2024-12-31", "description": "Fecha fin YYYY-MM-DD (requerido)" },
+                { "key": "segmentation", "value": "", "description": "Filtro por segmentación (opcional)", "disabled": true },
+                { "key": "term_value", "value": "", "description": "Filtro por valor de plazo (opcional)", "disabled": true },
+                { "key": "term_unit", "value": "", "description": "Filtro por unidad de plazo (opcional)", "disabled": true }
+              ]
+            },
+            "description": "Aliases disponibles: TRM, IBR, DTF, UVR, IPC, IPP, SOFR, TIPM, TIB, CPI, EMBI, BETAS, TBONDS, USURA_IBC, INFLACION_TOTAL, CUPON_CERO_TES, BETAS_TES"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Jobs de Indicadores",
+      "item": [
+        {
+          "name": "Listar Jobs (GET /indicator-jobs)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/indicator-jobs", "host": ["{{base_url}}"], "path": ["indicator-jobs"] }
+          }
+        },
+        {
+          "name": "Ejecutar Job específico (POST /indicator-jobs/:key/run)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{base_url}}/indicator-jobs/TRM_DATOSGOV/run",
+              "host": ["{{base_url}}"],
+              "path": ["indicator-jobs", "TRM_DATOSGOV", "run"]
+            },
+            "description": "Keys disponibles: TRM_DATOSGOV, TRM_VERCEL, CDT, IBR, DTF, TIPM, TIB, EUR_USD, IPC, IPP, SOFR_MARKETS, USURA_IBC, CPI, INFLACION_TOTAL, UVR, TBONDS, EMBI, BETAS, CUPON_CERO_TES, BETAS_TES"
+          }
+        },
+        {
+          "name": "Ejecutar Todos los Jobs (POST /indicator-jobs/run-all)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/indicator-jobs/run-all", "host": ["{{base_url}}"], "path": ["indicator-jobs", "run-all"] }
+          }
+        },
+        {
+          "name": "Estadísticas de Cola (GET /indicator-jobs/queue/stats)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/indicator-jobs/queue/stats", "host": ["{{base_url}}"], "path": ["indicator-jobs", "queue", "stats"] }
+          }
+        }
+      ]
+    }
+  ]
+}
