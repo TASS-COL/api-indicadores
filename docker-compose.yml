@@ -6,7 +6,7 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:
-      - "5433:5432"
+      - "5440:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     restart: unless-stopped
@@ -19,13 +19,13 @@ services:
   redis:
     image: redis:7-alpine
     ports:
-      - "6380:6379"
+      - "6390:6379"
     restart: unless-stopped
 
   api:
     build: .
     ports:
-      - "3008:3008"
+      - "8008:3008"
     env_file:
       - .env
     environment:
