@@ -1,10 +1,43 @@
 #!/usr/bin/env bash
+# deploy.sh — Build local y despliega api-indicadores en el servidor.
+# Uso: bash deploy.sh [ruta-clave-pem]
+
 set -euo pipefail
 
+SERVER="ubuntu@98.85.202.222"
+KEY="${1:-$HOME/Downloads/demo-teso-keys.pem}"
+IMAGE="api-indicadores"
+TAR="/tmp/api-indicadores-deploy.tar.gz"
+
+SSH="ssh -o StrictHostKeyChecking=no -i $KEY"
+SCP="scp -o StrictHostKeyChecking=no -i $KEY"
+
+echo "==> [1/4] Build imagen local..."
+docker build -t $IMAGE:latest .
+
+echo "==> [2/4] Exportar imagen..."
+docker save $IMAGE:latest | gzip > $TAR
+echo "    Tamaño: $(du -sh $TAR | cut -f1)"
+
+echo "==> [3/4] Subir al servidor..."
+$SCP $TAR $SERVER:/tmp/api-indicadores.tar.gz
+
+echo "==> [4/4] Cargar y reiniciar en el servidor..."
+$SSH $SERVER "
+  docker load < /tmp/api-indicadores.tar.gz
+  cd ~/api-indicadores
+  docker compose -f docker-compose.prod.yml up -d --force-recreate api
+  sleep 5
+  docker logs api-indicadores-api-1 --tail 8
+  rm /tmp/api-indicadores.tar.gz
+"
+
+rm -f $TAR
+echo ""
+echo "Deploy completado."
+
 # ═════════════════════════════════════════════════════════════════════════════════
-# Deploy Script para API-INDICATORS
-# Descripción: Script de deployment automático para la API de indicadores financieros
-# Uso: ./Deploy.sh [rama] [--skip-build] [--env-file]
+# ANTIGUO SCRIPT (conservado como referencia)
 # ═════════════════════════════════════════════════════════════════════════════════
 REPO_DIR="${REPO_DIR:-.}"
 REPO_URL="${REPO_URL:-}"
