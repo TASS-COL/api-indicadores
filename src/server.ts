@@ -5,6 +5,7 @@ import { ensureAppTables } from "./db/app.repo";
 import { ensureIndicatorTables } from "./db/indicator-historic.repo";
 import { ensureIndicatorRecordTables } from "./db/indicator.repo";
 import { ensureIndicatorGroupTables } from "./db/indicator-group.repo";
+import { ensureDamodaranTables } from "./db/damodaran.repo";
 import "./indicators/worker";
 import { logger } from "./utils/logger";
 import { scheduleIndicatorJobs } from "./indicators/scheduler";
@@ -31,6 +32,7 @@ async function main() {
   await ensureIndicatorRecordTables();
   await ensureIndicatorGroupTables();
   await ensureAppTables();
+  await ensureDamodaranTables();
   await runSeed();
   await scheduleIndicatorJobs();
   await triggerAllJobsNow();
